@@ -1,15 +1,20 @@
+# -*- coding: UTF-8 -*-
 import requests
 import sys,os
 import re
 from bs4 import BeautifulSoup
 import urllib
+import time
+import calendar
 
+global main_url,page_date
 main_url = 'https://www.ptt.cc'
+page_date = None
 
-def save(img_urls, title):
+def save(img_urls, title,push_count,folder):
     if img_urls:
         try:
-            dname = title.strip()  # 用 strip() 去除字串前後的空白
+            dname = folder + '/' + '[' + str(push_count) + ']' + title.strip()
             if os.path.exists(dname) == False:
                 os.makedirs(dname)
             for img_url in img_urls:
@@ -49,11 +54,17 @@ def get_web_page(url):
 def get_articles(dom, date):
     soup = BeautifulSoup(dom, 'html.parser')
 
-    articles = []  # 儲存取得的文章資料
+    articles = []
     divs = soup.find_all('div', 'r-ent')
+    count = 0
     for d in divs:
-        if d.find('div', 'date').string.strip(' ') == date:  # 發文日期正確
-            # 取得推文數
+        if count == 0:
+            global page_date
+            page_date = d.find('div', 'date').string.strip(' ')
+            count += 1
+#            print(page_date)
+        if d.find('div', 'date').string.strip(' ') == date:
+
             push_count = 0
             if d.find('div', 'nrec').string:
                 try:
@@ -61,12 +72,11 @@ def get_articles(dom, date):
                     if d.find('div', 'nrec').string == '爆':
                         push_count = 100
                     else:
-                        push_count = int(d.find('div', 'nrec').string)  # 轉換字串為數字
-                except ValueError:  # 若轉換失敗，不做任何事，push_count 保持為 0
+                        push_count = int(d.find('div', 'nrec').string)
+                except ValueError:
                     pass
-
-            # 取得文章連結及標題         
-            if d.find('a'):  # 有超連結，表示文章存在，未被刪除
+       
+            if d.find('a'): 
                 href = main_url + d.find('a')['href']
                 title = d.find('a').string
                 articles.append({
@@ -76,20 +86,24 @@ def get_articles(dom, date):
                 })
     return articles
 
-def start_download(url):
+def start_download(url,folder,date):
     pages = get_web_page(url)
 
-    pages_res = get_articles(pages,'5/06')
-    print(len(pages_res))
+    pages_res = get_articles(pages,date)
+
     if len(pages_res) != 0:
         for page_res in pages_res:
             page = get_web_page(page_res['href'])
             img_urls = parse(page)
-            print("title_download_begin : %s" % page_res['title'])
-            save(img_urls,page_res['title'])
-            print("title_download_end   : %s" % page_res['title'])
+            if len(img_urls) > 0:
+                print("title_download_begin : %s" % page_res['title'])
+                save(img_urls,page_res['title'],page_res['push_count'],folder)
+                print("title_download_end   : %s" % page_res['title'])
+    print("page_date : %s" % page_date)
+    print("date      : %s" % date)
+    if page_date >= date:    
         previous_page_url = get_previous_page_url(url)
-        start_download(previous_page_url)
+        start_download(previous_page_url,folder,date)
 
 def get_previous_page_url(url):
     pages = get_web_page(url)
@@ -97,12 +111,45 @@ def get_previous_page_url(url):
 
     return main_url + soup.find(text='‹ 上頁').find_previous()['href']
 
-if __name__ == "__main__":
-    url = 'https://www.ptt.cc/bbs/Beauty/index.html'
-    
-    start_download(url)
+def help():
+    print("=========================================================")
+    print(" ")
+    print("Function 1:")
+    print(" ")
+    print("     python main.py download ptt_board folder date   ")
+    print(" ")
+    print("     ex:python main.py download Linux ~/Document 9/08")
+    print(" ")
+    print("Function 2:")
+    print(" ")
+    print("     python main.py download_month ptt_board folder month")
+    print(" ")
+    print("     ex:python main.py download_month Linux ~/Document 2")
+    print("                                                Jerry Lin")
+    print("=========================================================")
 
-    print("test")
+if __name__ == "__main__":
+    #url = 'https://www.ptt.cc/bbs/Beauty/index.html'
+    
+    if len(sys.argv) == 5 and sys.argv[1] == "download"\
+        and sys.argv[2] != "" and sys.argv[3] != "" and sys.argv[4] != "":
+        url = 'https://www.ptt.cc/bbs' + '/' + sys.argv[2] + '/index.html'
+        if get_web_page(url) is None:
+            print('ptt_board input error')
+        start_download(url,sys.argv[3],sys.argv[4])
+    elif len(sys.argv) == 5 and sys.argv[1] == "download_month"\
+        and sys.argv[2] != "" and sys.argv[3] != "" and sys.argv[4] != "":
+        url = 'https://www.ptt.cc/bbs' + '/' + sys.argv[2] + '/index.html'
+        if get_web_page(url) is None:
+            print('ptt_board input error')
+        year = time.strftime("%Y")
+        monthRange = calendar.monthrange(int(year),int(sys.argv[4]))
+        for i in range(1,monthRange[1]+1):
+            date = sys.argv[4] + '/' + str(i).zfill(2)
+            start_download(url,sys.argv[3],date) 
+    else:
+        help()
+
     #previous_page_url = get_previous_page_url(url)
 
     #print(previous_page_url)
