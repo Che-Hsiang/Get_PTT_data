@@ -6,10 +6,10 @@ from bs4 import BeautifulSoup
 import urllib
 import time
 import calendar
+import sqlite3
 
-global main_url,page_date
-main_url = 'https://www.ptt.cc'
-page_date = None
+now_url = None
+
 
 def save(img_urls, title,push_count,folder):
     if img_urls:
@@ -25,9 +25,13 @@ def save(img_urls, title,push_count,folder):
                 if not img_url.endswith('.jpg'):
                     img_url += '.jpg'
                 fname = img_url.split('/')[-1]
-                print("begin : %s file_name : %s" % (img_url,fname))
-                urllib.request.urlretrieve(img_url, os.path.join(dname, fname))
-                print("end   : %s file_name : %s" % (img_url,fname))
+                
+                if os.path.exists(os.path.join(dname, fname)):
+                    print("The file already exists : %s" % os.path.join(dname, fname))
+                else:
+                    print("begin : %s file_name : %s" % (img_url,fname))
+                    urllib.request.urlretrieve(img_url, os.path.join(dname, fname))
+                    print("end   : %s file_name : %s" % (img_url,fname))
         except Exception as e:
             print(e)
 
@@ -52,6 +56,7 @@ def get_web_page(url):
         return resp.text
 
 def get_articles(dom, date):
+    global page_date
     soup = BeautifulSoup(dom, 'html.parser')
 
     articles = []
@@ -59,7 +64,6 @@ def get_articles(dom, date):
     count = 0
     for d in divs:
         if count == 0:
-            global page_date
             page_date = d.find('div', 'date').string.strip(' ')
             count += 1
 #            print(page_date)
@@ -87,9 +91,14 @@ def get_articles(dom, date):
     return articles
 
 def start_download(url,folder,date):
-    pages = get_web_page(url)
+    global now_url
+    global date_tag
 
+    pages = get_web_page(url)
     pages_res = get_articles(pages,date)
+
+    print("page_date : %s" % page_date)
+    print("date      : %s" % date)
 
     if len(pages_res) != 0:
         for page_res in pages_res:
@@ -99,17 +108,33 @@ def start_download(url,folder,date):
                 print("title_download_begin : %s" % page_res['title'])
                 save(img_urls,page_res['title'],page_res['push_count'],folder)
                 print("title_download_end   : %s" % page_res['title'])
-    print("page_date : %s" % page_date)
-    print("date      : %s" % date)
-    if page_date >= date:    
+    
+    if page_date != date and date_tag is True:  
+        print("%s END" % date)  
+        return
+    elif page_date != date:
         previous_page_url = get_previous_page_url(url)
+        now_url = previous_page_url
         start_download(previous_page_url,folder,date)
+    elif page_date == date:
+        date_tag = True
+        previous_page_url = get_previous_page_url(url)
+        now_url = previous_page_url
+        start_download(previous_page_url,folder,date)
+
+    
 
 def get_previous_page_url(url):
     pages = get_web_page(url)
     soup = BeautifulSoup(pages,'html.parser')
 
     return main_url + soup.find(text='‹ 上頁').find_previous()['href']
+
+def db_test():
+    conn = sqlite3.connect(db_name)
+
+    print("Opened database successfully")
+
 
 def help():
     print("=========================================================")
@@ -129,24 +154,37 @@ def help():
     print("=========================================================")
 
 if __name__ == "__main__":
-    #url = 'https://www.ptt.cc/bbs/Beauty/index.html'
+
+    main_url = 'https://www.ptt.cc'
+    page_date = None
+    db_name = 'test.db'
     
     if len(sys.argv) == 5 and sys.argv[1] == "download"\
         and sys.argv[2] != "" and sys.argv[3] != "" and sys.argv[4] != "":
         url = 'https://www.ptt.cc/bbs' + '/' + sys.argv[2] + '/index.html'
         if get_web_page(url) is None:
             print('ptt_board input error')
+        
+        date_tag = False
         start_download(url,sys.argv[3],sys.argv[4])
     elif len(sys.argv) == 5 and sys.argv[1] == "download_month"\
         and sys.argv[2] != "" and sys.argv[3] != "" and sys.argv[4] != "":
         url = 'https://www.ptt.cc/bbs' + '/' + sys.argv[2] + '/index.html'
+        now_url = url
         if get_web_page(url) is None:
             print('ptt_board input error')
         year = time.strftime("%Y")
         monthRange = calendar.monthrange(int(year),int(sys.argv[4]))
-        for i in range(1,monthRange[1]+1):
+        for i in range(monthRange[1],0,-1):
             date = sys.argv[4] + '/' + str(i).zfill(2)
-            start_download(url,sys.argv[3],date) 
+            
+            date_tag = False
+            start_download(now_url,sys.argv[3],date) 
+    elif len(sys.argv) == 2:
+        if os.path.exists(db_name):
+            db_test()
+        else:
+            print("DB isn't exist")
     else:
         help()
 
