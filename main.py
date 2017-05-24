@@ -104,8 +104,8 @@ def start_download(url,folder,date_target):
     pages = get_web_page(url)
     pages_res = get_articles(pages,date_target)
 #    print("now_url    : %s" % now_url)
-     print("page_date  : %s" % page_date)
-     print("date_target: %s" % date_target)
+    print("page_date  : %s" % page_date)
+    print("date_target: %s" % date_target)
 #    print("date_tag   : %s" % date_tag)
 #    print("pages_res : %s" % len(pages_res))
     if len(pages_res) != 0:
