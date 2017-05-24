@@ -61,33 +61,40 @@ def get_articles(dom, date_target):
 
     articles = []
     divs = soup.find_all('div', 'r-ent')
-    count = 0
-    for d in divs:
-        if count == 0:
-            page_date = d.find('div', 'date').string.strip(' ')
-            count += 1
-#            print(page_date)
-        if d.find('div', 'date').string.strip(' ') == date_target:
+    if len(page_date) > 0:
+        del page_date[:]
 
-            push_count = 0
-            if d.find('div', 'nrec').string:
-                try:
-                    #print(d.find('div', 'nrec').string)
-                    if d.find('div', 'nrec').string == '爆':
-                        push_count = 100
-                    else:
-                        push_count = int(d.find('div', 'nrec').string)
-                except ValueError:
-                    pass
-       
-            if d.find('a'): 
-                href = main_url + d.find('a')['href']
-                title = d.find('a').string
-                articles.append({
-                    'title': title,
-                    'href': href,
-                    'push_count': push_count
-                })
+    for d in divs:
+        try:
+            if d.find('a').string.split(']')[0] != '[公告':
+                the_page = d.find('div', 'date').string.strip(' ')
+
+                if the_page not in page_date:
+                    page_date.append(the_page)
+
+                if d.find('div', 'date').string.strip(' ') == date_target:
+
+                    push_count = 0
+                    if d.find('div', 'nrec').string:
+                        try:
+                            #print(d.find('div', 'nrec').string)
+                            if d.find('div', 'nrec').string == '爆':
+                                push_count = 100
+                            else:
+                                push_count = int(d.find('div', 'nrec').string)
+                        except ValueError:
+                            pass
+               
+                    if d.find('a'): 
+                        href = main_url + d.find('a')['href']
+                        title = d.find('a').string
+                        articles.append({
+                            'title': title,
+                            'href': href,
+                            'push_count': push_count
+                        })
+        except:
+            continue
     return articles
 
 def start_download(url,folder,date_target):
@@ -96,10 +103,11 @@ def start_download(url,folder,date_target):
 
     pages = get_web_page(url)
     pages_res = get_articles(pages,date_target)
-
-    print("page_date  : %s" % page_date)
-    print("date_target: %s" % date_target)
-    #print("pages_res : %s" % len(pages_res))
+#    print("now_url    : %s" % now_url)
+     print("page_date  : %s" % page_date)
+     print("date_target: %s" % date_target)
+#    print("date_tag   : %s" % date_tag)
+#    print("pages_res : %s" % len(pages_res))
     if len(pages_res) != 0:
         for page_res in pages_res:
             page = get_web_page(page_res['href'])
@@ -110,24 +118,31 @@ def start_download(url,folder,date_target):
                 #print("title_download_end   : %s" % page_res['title'])
 
     #上一頁日期正確，且本頁不正確，抓最後遺漏的圖片
-    if page_date != date_target and date_tag is True:
+    if date_target not in page_date and date_tag is True:
         print("%s END" % date_target)  
         return
-    #1、頁數相等，給予tag，下一次停止
-    #2、頁數不相等，但有結果，故判斷為最新的一頁，故給予tag
-    elif page_date == date_target or (page_date != date_target and len(pages_res) > 0):
+    #日期正確，且該頁有多個日期
+    if date_target in page_date and len(page_date) > 1:
+        #若日期為最小值，繼續往上一頁找
+        if page_date.index(date_target) == 0:
+            previous_page_url = get_previous_page_url(url)
+            now_url = previous_page_url
+            start_download(previous_page_url,folder,date_target)
+        #若日期不為最小值，終止該頁
+        else:
+            print("%s END" % date_target)  
+            return
+    #日期正確，且該頁只有一種日期
+    elif date_target in page_date and len(page_date) == 1:
         date_tag = True
         previous_page_url = get_previous_page_url(url)
         now_url = previous_page_url
         start_download(previous_page_url,folder,date_target)
-    #若頁數不等，查找上一頁
-    elif page_date != date_target:
+    #若日期不等，查找上一頁
+    elif date_target not in page_date:
         previous_page_url = get_previous_page_url(url)
         now_url = previous_page_url
         start_download(previous_page_url,folder,date_target)
-    #判斷以月數進行搜尋的話，停止點
-    #判斷日期大小？過濾掉 1/1 vs 12/31 的 案例
-    
 
 def get_previous_page_url(url):
     pages = get_web_page(url)
@@ -163,7 +178,7 @@ def help():
 if __name__ == "__main__":
 
     main_url = 'https://www.ptt.cc'
-    page_date = None
+    page_date = []
     db_name = 'test.db'
     now_url = None
 
@@ -172,30 +187,31 @@ if __name__ == "__main__":
         url = 'https://www.ptt.cc/bbs' + '/' + sys.argv[2] + '/index.html'
         if get_web_page(url) is None:
             print('ptt_board input error')
-            return
-        date_tag = False
-        start_download(url,sys.argv[3],sys.argv[4])
+        else:
+            date_tag = False
+            start_download(url,sys.argv[3],sys.argv[4])
     elif len(sys.argv) == 5 and sys.argv[1] == "download_month"\
         and sys.argv[2] != "" and sys.argv[3] != "" and sys.argv[4] != "":
         url = 'https://www.ptt.cc/bbs' + '/' + sys.argv[2] + '/index.html'
         now_url = url
         if get_web_page(url) is None:
             print('ptt_board input error')
-            return
-        year = time.strftime("%Y")
-        today = datetime.date.today()
-        today_m = today.month
+        else:
+            year = time.strftime("%Y")
+            today = datetime.date.today()
+            today_m = today.month
 
-        if (str(today_m) == str(sys.argv[4])): 
-            month_max = today.day
-        else:       
-            monthRange = calendar.monthrange(int(year),int(sys.argv[4]))
-            month_max = monthRange[1]
+            if (str(today_m) == str(sys.argv[4])): 
+                month_max = today.day
+            else:       
+                monthRange = calendar.monthrange(int(year),int(sys.argv[4]))
+                month_max = monthRange[1]
 
-        for i in range(month_max,0,-1):
-            date_target = sys.argv[4] + '/' + str(i).zfill(2)
-            date_tag = False
-            start_download(now_url,sys.argv[3],date_target) 
+            for i in range(month_max,0,-1):
+                date_target = sys.argv[4] + '/' + str(i).zfill(2)
+                date_tag = False
+                start_download(now_url,sys.argv[3],date_target) 
+        print('download_month END')
     elif len(sys.argv) == 2:
         if os.path.exists(db_name):
             db_test()
