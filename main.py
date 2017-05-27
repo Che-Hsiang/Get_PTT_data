@@ -11,10 +11,10 @@ import datetime
 
 
 
-def save(img_urls, title,push_count,folder):
+def save(img_urls, title,author,push_count,folder):
     if img_urls:
         try:
-            dname = folder + '/' + title.strip()
+            dname = folder + '/' + title.strip() + '_' + author.strip()
             if os.path.exists(dname) == False:
                 os.makedirs(dname)
             for img_url in img_urls:
@@ -88,9 +88,11 @@ def get_articles(dom, date_target):
                     if d.find('a'): 
                         href = main_url + d.find('a')['href']
                         title = d.find('a').string
+                        author = d.find('div','author').string
                         articles.append({
                             'title': title,
                             'href': href,
+                            'author': author,
                             'push_count': push_count
                         })
         except:
@@ -114,25 +116,26 @@ def start_download(url,folder,date_target):
             img_urls = parse(page)
             if len(img_urls) > 0:
                 #print("title_download_begin : %s" % page_res['title'])
-                save(img_urls,page_res['title'],page_res['push_count'],folder)
+                save(img_urls,page_res['title'],page_res['author'],page_res['push_count'],folder)
                 #print("title_download_end   : %s" % page_res['title'])
 
-    #上一頁日期正確，且本頁不正確，抓最後遺漏的圖片
+    #上一頁日期正確，且本頁不正確，結束程式
     if date_target not in page_date and date_tag is True:
         print("%s END" % date_target)  
         return
     #日期正確，且該頁有多個日期
     if date_target in page_date and len(page_date) > 1:
-        #若日期為最小值，繼續往上一頁找
+        #且日期為最小值，繼續往上一頁找
         if page_date.index(date_target) == 0:
+            date_tag = True
             previous_page_url = get_previous_page_url(url)
             now_url = previous_page_url
             start_download(previous_page_url,folder,date_target)
-        #若日期不為最小值，終止該頁
+        #若日期不為最小值，終止搜尋
         else:
             print("%s END" % date_target)  
             return
-    #日期正確，且該頁只有一種日期
+    #日期正確，且該頁只有一個日期，繼續往上一頁找
     elif date_target in page_date and len(page_date) == 1:
         date_tag = True
         previous_page_url = get_previous_page_url(url)
