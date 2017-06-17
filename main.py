@@ -57,6 +57,7 @@ def get_web_page(url):
 
 def get_articles(dom, date_target):
     global page_date
+    time.sleep(3)
     soup = BeautifulSoup(dom, 'html.parser')
 
     articles = []
