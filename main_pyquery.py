@@ -20,10 +20,12 @@ def startDownloadData(targetBoard,targetDate,targetFolder):
     contents = dom('.r-list-container').children('.r-list-sep').prev_all('.r-ent')
     pttDatas = []
     for content in contents.items():
-
         webData = getWebData(content)
         if webData is None:
             print('此文已被刪除,繼續爬下一篇')
+            timeNum = randint(1,5)
+            print('倒數 %s 秒後開始' % timeNum)
+            time.sleep(timeNum)
         else:
             webDetailDataHtml = webData['articleUrl']
             print(webDetailDataHtml)
@@ -33,14 +35,19 @@ def startDownloadData(targetBoard,targetDate,targetFolder):
             webData['boardName'] = targetBoard
 
             webDetailData = getWebDetailData(webDetailDataHtml)
-
-            timeNum = randint(1,3)
-            time.sleep(timeNum)
-
+            
             pttData = {}
             pttData = webData.copy()
             pttData.update(webDetailData)
             pttDatas.append(pttData)
+
+            print(pttData.keys())
+
+
+            timeNum = randint(1,5)
+            time.sleep(timeNum)
+            print('倒數 %s 秒後開始' % timeNum)
+
 #    print(pttDatas)
     insertDataToDb(pttDatas)
 
@@ -64,9 +71,9 @@ def getWebDetailData(webDetailDataHtml):
 
     #po文時間，文章內容，網址們
     webDetailDict = {
-                        'postDate'  :   postDate,
-                        'article'   :   article,
-                        'urls'      :   urls
+                        'postDate'          :   postDate,
+                        'articleContent'    :   article,
+                        'urls'              :   urls
                     }
 
     return webDetailDict
@@ -80,13 +87,23 @@ def getWebData(targetContent):
         title = targetContent('.title').children().text()
         author = targetContent('.author').text()
 
+        nrec = nrec.strip(' ')
+
+        if nrec == '爆':
+            nrec = 99
+        elif nrec == '':
+            nrec = 0
+        elif nrec.find('X') > 0:
+            nrec = int(nrec.strip('X'))
+            nrec = nrec - 2 * nrec
+
         #推數、月日時間、連結網址、標題、作者
         webDict =   {
                               'nrec'    :   nrec,
                               'mmddDate':   mmddDate,
                               'articleUrl'    :   html,
-                              'title'   :   title,
-                              'authorId'  :   author
+                              'articleTitle'   :   title,
+                              'articleAuthorId'  :   author
                     }
     except:
         return None
@@ -104,8 +121,8 @@ def insertDataToDb(pttDatas):
             print('爬尋資料中')
             print(pttData)
             sql =   """
-                        insert into articleData (boardName,articleCode,articleUrl,title,authorId,article,nrec)
-                        values('%(boardName)s','%(articleCode)s','%(articleUrl)s','%(title)s','%(authorId)s','%(article)s','%(nrec)s');
+                        insert into articleData (boardName,articleCode,articleUrl,auticleTitle,auticleAuthorId,articleContent,articleNrec)
+                        values('%(boardName)s','%(articleCode)s','%(articleUrl)s','%(auticleTitle)s','%(auticleAuthorId)s','%(articleContent)s','%(articleNrec)s');
                     """ % pttData
             print(sql)
             cur.execute(sql)
@@ -135,6 +152,7 @@ def createDb():
     cur = conn.cursor()
     cur.execute(sql['articleData'])
     cur.execute(sql['pushData'])
+    cur.execute(sql['urlData'])
     conn.commit()
     conn.close()
     print('DB建立完畢')

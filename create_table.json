@@ -1,4 +1,5 @@
 {
-    "articleData":"CREATE TABLE articleData   (boardName character varying(20),articleCode character varying(30) PRIMARY KEY,articleUrl character varying(100),title character varying(100),authorId character varying(30),article character varying(1000),nrec integer DEFAULT 0,postDate timestamp with time zone,postVersion integer DEFAULT 0);",
-    "pushData":"CREATE TABLE pushData(articleCode character varying(30),pushNo integer DEFAULT 0,pushId character varying(30),pushText character varying(50),pushTag character varying(2));"
+    "articleData":"CREATE TABLE articleData   (boardName character varying(20),articleCode character varying(30) PRIMARY KEY,articleUrl character varying(100),articleTitle character varying(100),authorId character varying(30),articleContent character varying(1000),articleNrec integer DEFAULT 0,postDate timestamp with time zone,postVersion integer DEFAULT 0);",
+    "pushData":"CREATE TABLE pushData(articleCode character varying(30),pushNo integer DEFAULT 0,pushId character varying(30),pushText character varying(50),pushTag character varying(2));",
+    "urlData":"CREATE TABLE urlData (articleCode character varying(30),urlLink character varying(100),urlOwnerId character varying(30));"
 }
