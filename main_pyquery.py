@@ -16,24 +16,16 @@ dbName = 'ptt.db'
 
 def startDownloadData(targetBoard,targetUrl,targetDate,targetFolder):
     print('開始爬文章')
-    print('1')
     dom = pq(url=targetUrl,cookies={'over18' : '1'})
-    print('2')
     if targetUrl[-10:] == 'index.html':
         contents = dom('.r-list-container').children('.r-list-sep').prev_all('.r-ent')
     else:
         contents = dom('.r-list-container').children('.r-ent')
-    print('3')
     pttDatas = []
-    print('4')
     #上一頁
     prePage = mainUrl + dom('.wide').eq(1).attr('href')
-    print(prePage)
-    print('5')
     targetDateLen =  len(targetDate)
-    print('6')
     dateList = []
-    print('7')
     for content in contents.items():
         webData = getWebData(content)
         if webData is None:
