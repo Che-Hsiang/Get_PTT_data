@@ -350,7 +350,7 @@ def timeFormatTransfer(oriTime):
 def help():
     print('===========================================================')
     print('python3 main_pyquery.py targetBoard targetDate targetFolder')
-    print(''
+    print('')
     print('格式:')
     print('    targetBoard  = MAC or Beauty')
     print('    targetDate   = 2017-07-01 or 2017-07 or 2017')
