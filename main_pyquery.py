@@ -7,28 +7,40 @@ import calendar
 import sqlite3
 import datetime
 import json
+import sys
 from pyquery import PyQuery as pq
 from random import randint
+
 mainUrl = 'https://www.ptt.cc'
 dbName = 'ptt.db'
 
-def startDownloadData(targetBoard,targetDate,targetFolder):
+def startDownloadData(targetBoard,targetUrl,targetDate,targetFolder):
     print('開始爬文章')
-    targetUrl = 'https://www.ptt.cc/bbs/' + targetBoard + '/index.html'
-    targetUrlHead = 'https://www.ptt.cc/bbs/' + targetBoard + '/'
+    print('1')
     dom = pq(url=targetUrl,cookies={'over18' : '1'})
-    contents = dom('.r-list-container').children('.r-list-sep').prev_all('.r-ent')
+    print('2')
+    if targetUrl[-10:] == 'index.html':
+        contents = dom('.r-list-container').children('.r-list-sep').prev_all('.r-ent')
+    else:
+        contents = dom('.r-list-container').children('.r-ent')
+    print('3')
     pttDatas = []
+    print('4')
+    #上一頁
+    prePage = mainUrl + dom('.wide').eq(1).attr('href')
+    print(prePage)
+    print('5')
+    targetDateLen =  len(targetDate)
+    print('6')
+    dateList = []
+    print('7')
     for content in contents.items():
         webData = getWebData(content)
         if webData is None:
             print('此文已被刪除,繼續爬下一篇')
-            timeNum = randint(1,5)
-            print('倒數 %s 秒後開始' % timeNum)
-            time.sleep(timeNum)
         else:
             webDetailDataHtml = webData['articleUrl']
-            print(webDetailDataHtml)
+            print('準備爬取 %s 文章' % webDetailDataHtml)
             #文章代碼
             articleCode = webDetailDataHtml.strip('.html').strip(targetUrlHead)
             webData['articleCode'] = articleCode
@@ -36,8 +48,12 @@ def startDownloadData(targetBoard,targetDate,targetFolder):
             webData['postVersion'] = getPostVersion(webData['articleCode'])
 
             webDetailData = getWebDetailData(webDetailDataHtml)
+
+            yymmddDate = webDetailData['postDate'][:10]
+
+            dateList.append(yymmddDate[:targetDateLen])
             
-            webDetailPushData = getWebDetailPushData(webDetailDataHtml)
+            webDetailPushData = getWebDetailPushData(webDetailDataHtml,yymmddDate)
 
             pttData = {}
             pttData = webData.copy()
@@ -45,13 +61,22 @@ def startDownloadData(targetBoard,targetDate,targetFolder):
             pttData.update(webDetailPushData)
             pttDatas.append(pttData)
 
-            timeNum = randint(1,5)
-            time.sleep(timeNum)
             insertArticleDataToDb(pttData,articleCode)
             insertPushDataToDb(pttData,articleCode)
             insertUrlDataToDb(pttData,articleCode)
-            print('倒數 %s 秒後開始' % timeNum)
-    
+        timeNum = randint(1,5)
+        print('倒數 %s 秒後開始' % timeNum)
+        time.sleep(timeNum)
+      
+    oldDate = dateList[0]
+    newDate = dateList[len(dateList)-1]
+
+    if targetDate > oldDate:
+        print('結束爬文')
+    else:
+        print('準備爬上一頁')
+        startDownloadData(targetBoard,prePage,targetDate,targetFolder)
+
 
 #取得文章版本
 def getPostVersion(articleCode):
@@ -79,7 +104,8 @@ def getPostVersion(articleCode):
         conn.close()
 
 #取得文章推文內容
-def getWebDetailPushData(webDetailDataHtml):
+#去除 ' 單引號，用@代替
+def getWebDetailPushData(webDetailDataHtml,yymmddDate):
     dom = pq(url=webDetailDataHtml,cookies={'over18' : '1'})
     pushDatas = dom('.push')
     pushDataList = []
@@ -90,8 +116,8 @@ def getWebDetailPushData(webDetailDataHtml):
         pushDataDict['pushNo'] = count
         pushDataDict['pushTag'] = pushData('.push-tag').text()
         pushDataDict['pushId'] = pushData('.push-userid').text()
-        pushDataDict['pushText'] = pushData('.push-content').text()
-        pushDataDict['pushDate'] = pushData('.push-ipdatetime').text()
+        pushDataDict['pushText'] = pushData('.push-content').text().replace("'",'@')
+        pushDataDict['pushDate'] = yymmddDate + ' ' + pushData('.push-ipdatetime').text()[-5:]
         pushDataList.append(pushDataDict)
 
     pushDataDicts = {}
@@ -101,11 +127,14 @@ def getWebDetailPushData(webDetailDataHtml):
 
 
 #取得文章的內容與內容網址
+#去除 ' 單引號，用@代替
 def getWebDetailData(webDetailDataHtml):
     dom = pq(url=webDetailDataHtml,cookies={'over18' : '1'})
 
     #取得po文時間
-    postDate = dom('.article-meta-value').eq(3).text()
+    postDate = timeFormatTransfer(dom('.article-meta-value').eq(3).text())
+
+    getDate = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
     #取得文章內的網址
     webUrls = dom('#main-content').remove('.richcontent').find('a')
@@ -116,7 +145,7 @@ def getWebDetailData(webDetailDataHtml):
     urls.pop()
 
     #取得文章的內文
-    article = dom('#main-content').remove('*').text()
+    article = dom('#main-content').remove('*').text().replace("'",'@')
 
     article = article.replace('\n','<br>')
 
@@ -124,7 +153,8 @@ def getWebDetailData(webDetailDataHtml):
     webDetailDict = {
                         'postDate'          :   postDate,
                         'articleContent'    :   article,
-                        'urls'              :   urls
+                        'urls'              :   urls,
+                        'getDate'           :   getDate
                     }
 
     return webDetailDict
@@ -161,7 +191,7 @@ def getWebData(targetContent):
     else:
         return webDict
 
-#新增資料至db
+#新增文章資料至db
 def insertArticleDataToDb(pttData,articleCode):
     try:
         conn = sqlite3.connect(dbName)
@@ -171,8 +201,8 @@ def insertArticleDataToDb(pttData,articleCode):
         print('準備新增文章資料')
 #        print(pttData)
 
-        articleDataSql =    """insert into articleData (boardName,articleCode,articleUrl,articleTitle,authorId,articleContent,articleNrec,postVersion)
-                                select '%(boardName)s','%(articleCode)s','%(articleUrl)s','%(articleTitle)s','%(authorId)s','%(articleContent)s','%(articleNrec)s','%(postVersion)s'
+        articleDataSql =    """insert into articleData (boardName,articleCode,articleUrl,articleTitle,authorId,articleContent,articleNrec,postVersion,postDate,getDate)
+                                select '%(boardName)s','%(articleCode)s','%(articleUrl)s','%(articleTitle)s','%(authorId)s','%(articleContent)s','%(articleNrec)s','%(postVersion)s','%(postDate)s','%(getDate)s'
                                 where not exists
                                 (select 1 
                                 from articleData 
@@ -201,6 +231,7 @@ def insertArticleDataToDb(pttData,articleCode):
     finally:
         conn.close()
 
+#新增推文資料到DB
 def insertPushDataToDb(pttData,articleCode):
     try:
 
@@ -211,8 +242,8 @@ def insertPushDataToDb(pttData,articleCode):
         print('準備新增推文資料')
         for pushData in pttData['webDetailPushData']:
             pushData['articleCode'] = articleCode
-            pushDataSql =   """insert into pushData (articleCode,pushNo,pushId,pushText,pushTag)
-                               select '%(articleCode)s','%(pushNo)s','%(pushId)s','%(pushText)s','%(pushTag)s'
+            pushDataSql =   """insert into pushData (articleCode,pushNo,pushId,pushText,pushTag,pushDate)
+                               select '%(articleCode)s','%(pushNo)s','%(pushId)s','%(pushText)s','%(pushTag)s','%(pushDate)s'
                                where not exists
                                (select 1
                                from pushData
@@ -221,6 +252,7 @@ def insertPushDataToDb(pttData,articleCode):
                                and pushId = '%(pushId)s'
                                and pushText = '%(pushText)s'
                                and pushTag = '%(pushTag)s'
+                               and pushDate = '%(pushDate)s'
                                );
                             """ % pushData
 
@@ -243,6 +275,7 @@ def insertPushDataToDb(pttData,articleCode):
     finally:
         conn.close()
 
+#新增url資料到DB
 def insertUrlDataToDb(pttData,articleCode):
 
     try:
@@ -253,7 +286,6 @@ def insertUrlDataToDb(pttData,articleCode):
 
         print('準備新增url資料')
         for urlData in pttData['urls']:
-            print(urlData)
             urlDataSql =    """insert into urlData (articleCode,urlLink,urlOwnerId)
                                select '%(articleCode)s','%(urlLink)s','%(urlOwnerId)s'
                                where not exists
@@ -307,13 +339,39 @@ def createDb():
     conn.close()
     print('DB建立完畢')
 
+def timeFormatTransfer(oriTime):
+
+    datatimeFormat = "%a %b %d %H:%M:%S %Y"
+    oriTimeStr = time.strptime(oriTime,datatimeFormat)
+    newTimeStr = time.strftime("%Y-%m-%d %H:%M:%S", oriTimeStr) 
+
+    return newTimeStr
+
+def help():
+    print('===========================================================')
+    print('python3 main_pyquery.py targetBoard targetDate targetFolder')
+    print(''
+    print('格式:')
+    print('    targetBoard  = MAC or Beauty')
+    print('    targetDate   = 2017-07-01 or 2017-07 or 2017')
+    print('    targetFolder = ~/Download')
+    print('說明:')
+    print('    targetDate : 2017-07-01  = 2017-01-01 ~ 現在')
+    print('    targetDate : 2017-07     = 2017-07    ~ 現在')
+    print('    targetDate : 2017        = 2017       ~ 現在')
+    print('===========================================================')
+
+                 
+
 if __name__ == "__main__":
-    targetBoard = 'Beauty'
-    targetDate = '20170618'
-    targetFolder = '~/Download/ptt_data/test_folder'
-    checkDbExist()
-    startDownloadData(targetBoard,targetDate,targetFolder)
-#    startDownloadImage()
+
+    if len(sys.argv) == 4 and  sys.argv[1] is not None and sys.argv[2] is not None and sys.argv[3] is not None:
+        checkDbExist()
+        targetUrlHead = 'https://www.ptt.cc/bbs/' + sys.argv[1] + '/'
+        targetUrl = 'https://www.ptt.cc/bbs/' + sys.argv[1] + '/index.html'
+        startDownloadData(sys.argv[1],targetUrl,sys.argv[2],sys.argv[3])
+    else:
+        help()
 
     
 
