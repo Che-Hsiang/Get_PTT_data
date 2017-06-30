@@ -16,12 +16,13 @@ dbName = 'ptt.db'
 
 def startDownloadData(targetBoard,targetUrl,targetDate,targetFolder):
     print('開始爬文章')
+    print('本頁網址為: %s' % targetUrl)
+    writeFlag(targetBoard,targetUrl,targetDate,targetFolder)
     dom = pq(url=targetUrl,cookies={'over18' : '1'})
     if targetUrl[-10:] == 'index.html':
         contents = dom('.r-list-container').children('.r-list-sep').prev_all('.r-ent')
     else:
         contents = dom('.r-list-container').children('.r-ent')
-    pttDatas = []
     #上一頁
     prePage = mainUrl + dom('.wide').eq(1).attr('href')
     targetDateLen =  len(targetDate)
@@ -55,14 +56,13 @@ def startDownloadData(targetBoard,targetUrl,targetDate,targetFolder):
                 pttData = webData.copy()
                 pttData.update(webDetailData)
                 pttData.update(webDetailPushData)
-                pttDatas.append(pttData)
 
             except Exception as e:
                 print(e)
                 print('此 %s 有問題，跳過此文章' % webDetailDataHtml)
                 pass
 
-            finally:
+            else:
                 #新增資料到DB
                 insertArticleDataToDb(pttData,articleCode)
                 insertPushDataToDb(pttData,articleCode)
@@ -81,6 +81,38 @@ def startDownloadData(targetBoard,targetUrl,targetDate,targetFolder):
         print('準備爬上一頁')
         startDownloadData(targetBoard,prePage,targetDate,targetFolder)
 
+#寫入現在的flag
+def writeFlag(targetBoard,targetUrl,targetDate,targetFolder):
+    try:
+        print('準備寫入flag')
+        f = open('flag.txt','w')
+        f.write(targetBoard)
+        f.write('\n')
+        f.write(targetUrl)
+        f.write('\n')
+        f.write(targetDate)
+        f.write('\n')
+        f.write(targetFolder)
+        print('flag寫入完畢')
+    except Exception as e:
+        print('寫入檔案發生了一些問題')
+        print(e)
+    finally:    
+        f.close()
+
+#讀取上次的flag
+def readFlag():
+    try:
+        print('準備讀取flag')
+        f = open('flag.txt','r')
+        flag = f.readlines()
+        print('flag讀取完畢')
+        return flag
+    except Exception as e:
+        print('讀取檔案發生了一些問題')
+        print(e)
+    finally:
+        f.close()
 
 #取得文章版本
 def getPostVersion(articleCode):
@@ -364,6 +396,9 @@ def help():
     print('    targetDate : 2017-07-01  = 2017-01-01 ~ 現在')
     print('    targetDate : 2017-07     = 2017-07    ~ 現在')
     print('    targetDate : 2017        = 2017       ~ 現在')
+    print('')
+    print('python3 main_pyquery.py fromLastUrl')
+    print('')
     print('===========================================================')
 
                  
@@ -375,6 +410,12 @@ if __name__ == "__main__":
         targetUrlHead = 'https://www.ptt.cc/bbs/' + sys.argv[1] + '/'
         targetUrl = 'https://www.ptt.cc/bbs/' + sys.argv[1] + '/index.html'
         startDownloadData(sys.argv[1],targetUrl,sys.argv[2],sys.argv[3])
+    elif len(sys.argv) == 2 and sys.argv[1] == 'fromLastUrl':
+        checkDbExist()
+        preUrl = readFlag()
+        targetUrlHead = 'https://www.ptt.cc/bbs/' + preUrl[1].strip('\n') + '/'
+        targetUrl = 'https://www.ptt.cc/bbs/' + preUrl[1].strip('\n') + '/index.html'
+        startDownloadData(preUrl[0].strip('\n'),preUrl[1].strip('\n'),preUrl[2].strip('\n'),preUrl[3].strip('\n'))
     else:
         help()
 
