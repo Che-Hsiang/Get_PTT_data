@@ -27,35 +27,47 @@ def startDownloadData(targetBoard,targetUrl,targetDate,targetFolder):
     targetDateLen =  len(targetDate)
     dateList = []
     for content in contents.items():
+        #取得文章標題內容
         webData = getWebData(content)
         if webData is None:
             print('此文已被刪除,繼續爬下一篇')
         else:
-            webDetailDataHtml = webData['articleUrl']
-            print('準備爬取 %s 文章' % webDetailDataHtml)
-            #文章代碼
-            articleCode = webDetailDataHtml.strip('.html').strip(targetUrlHead)
-            webData['articleCode'] = articleCode
-            webData['boardName'] = targetBoard
-            webData['postVersion'] = getPostVersion(webData['articleCode'])
+            #若是該文章為 投票、公告、水桶之類的，就跳過不擷取
+            try:
+                webDetailDataHtml = webData['articleUrl']
+                print('準備爬取 %s 文章' % webDetailDataHtml)
+                #文章代碼
+                articleCode = webDetailDataHtml.strip('.html').strip(targetUrlHead)
+                webData['articleCode'] = articleCode
+                webData['boardName'] = targetBoard
+                webData['postVersion'] = getPostVersion(webData['articleCode'])
 
-            webDetailData = getWebDetailData(webDetailDataHtml)
+                #取得文章內容
+                webDetailData = getWebDetailData(webDetailDataHtml)
+                yymmddDate = webDetailData['postDate'][:10]
 
-            yymmddDate = webDetailData['postDate'][:10]
+                dateList.append(yymmddDate[:targetDateLen])
+                
+                #取得推文內容
+                webDetailPushData = getWebDetailPushData(webDetailDataHtml,yymmddDate)
 
-            dateList.append(yymmddDate[:targetDateLen])
-            
-            webDetailPushData = getWebDetailPushData(webDetailDataHtml,yymmddDate)
+                pttData = {}
+                pttData = webData.copy()
+                pttData.update(webDetailData)
+                pttData.update(webDetailPushData)
+                pttDatas.append(pttData)
 
-            pttData = {}
-            pttData = webData.copy()
-            pttData.update(webDetailData)
-            pttData.update(webDetailPushData)
-            pttDatas.append(pttData)
+            except Exception as e:
+                print(e)
+                print('此 %s 有問題，跳過此文章' % webDetailDataHtml)
+                pass
 
-            insertArticleDataToDb(pttData,articleCode)
-            insertPushDataToDb(pttData,articleCode)
-            insertUrlDataToDb(pttData,articleCode)
+            finally:
+                #新增資料到DB
+                insertArticleDataToDb(pttData,articleCode)
+                insertPushDataToDb(pttData,articleCode)
+                insertUrlDataToDb(pttData,articleCode)
+
         timeNum = randint(1,5)
         print('倒數 %s 秒後開始' % timeNum)
         time.sleep(timeNum)
@@ -73,31 +85,31 @@ def startDownloadData(targetBoard,targetUrl,targetDate,targetFolder):
 #取得文章版本
 def getPostVersion(articleCode):
     try:
+        print('取得文章版本中')
         conn = sqlite3.connect(dbName)
         cur = conn.cursor()
-        print('DB連線建立中')
-        sql =   """
-                        select ad.articleCode,max(postVersion) as maxVersion
-                        from articleData as ad
-                        where ad.articleCode = '%s'
-                        group by ad.articleCode
+        sql =   """select ad.articleCode,max(postVersion) as maxVersion
+                    from articleData as ad
+                    where ad.articleCode = '%s'
+                    group by ad.articleCode
                 """ % articleCode
         cur.execute(sql)
-        print('準備取得文章版本')
         res = cur.fetchone()
-        print('文章版本已取得')
+        print('文章版本取得完畢')
         if res is None:
             return '0'
         else:
             return res[1] + 1
     except:
-        return None
+        print('文章版本取得發生一些問題')
+        return '0'
     finally:
         conn.close()
 
 #取得文章推文內容
 #去除 ' 單引號，用@代替
 def getWebDetailPushData(webDetailDataHtml,yymmddDate):
+    print('取得推文內容中')
     dom = pq(url=webDetailDataHtml,cookies={'over18' : '1'})
     pushDatas = dom('.push')
     pushDataList = []
@@ -114,13 +126,14 @@ def getWebDetailPushData(webDetailDataHtml,yymmddDate):
 
     pushDataDicts = {}
     pushDataDicts['webDetailPushData']= pushDataList
-
+    print('推文內容取得完畢')
     return pushDataDicts
 
 
 #取得文章的內容與內容網址
 #去除 ' 單引號，用@代替
 def getWebDetailData(webDetailDataHtml):
+    print('取得文章內容中')
     dom = pq(url=webDetailDataHtml,cookies={'over18' : '1'})
 
     #取得po文時間
@@ -148,12 +161,13 @@ def getWebDetailData(webDetailDataHtml):
                         'urls'              :   urls,
                         'getDate'           :   getDate
                     }
-
+    print('文章內容取得完畢')
     return webDetailDict
 
 #取得每頁文章標題列的內容
 def getWebData(targetContent):
     try:
+        print('取得文章標題內容中')
         nrec = targetContent('.nrec').children().text()
         mmddDate = targetContent('.date').text()
         html = mainUrl + targetContent('.title').children().attr('href')
@@ -181,6 +195,7 @@ def getWebData(targetContent):
     except:
         return None
     else:
+        print('文章標題內容取得完畢')
         return webDict
 
 #新增文章資料至db
@@ -269,9 +284,7 @@ def insertPushDataToDb(pttData,articleCode):
 
 #新增url資料到DB
 def insertUrlDataToDb(pttData,articleCode):
-
     try:
-
         conn = sqlite3.connect(dbName)
         cur = conn.cursor()
         print('DB連線建立中')
