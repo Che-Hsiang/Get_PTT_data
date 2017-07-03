@@ -14,11 +14,19 @@ from random import randint
 mainUrl = 'https://www.ptt.cc'
 dbName = 'ptt.db'
 
+headers1 = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
+headers2 = {'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36'}
+headers3 = {'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
+headers4 = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
+headers5 = {'User-Agent':'Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.104 Safari/537.36'}
+headers = [headers1,headers2,headers3,headers4,headers5]
+
 def startDownloadData(targetBoard,targetUrl,targetDate,targetFolder):
-    print('開始爬文章')
     print('本頁網址為: %s' % targetUrl)
     writeFlag(targetBoard,targetUrl,targetDate,targetFolder)
-    dom = pq(url=targetUrl,cookies={'over18' : '1'})
+    print('準備開始爬文章標題')
+    dom = pq(url=targetUrl,cookies={'over18' : '1'},headers=headers[randint(0,5)])
+    print('文章標題取得完畢')
     if targetUrl[-10:] == 'index.html':
         contents = dom('.r-list-container').children('.r-list-sep').prev_all('.r-ent')
     else:
@@ -142,7 +150,7 @@ def getPostVersion(articleCode):
 #去除 ' 單引號，用@代替
 def getWebDetailPushData(webDetailDataHtml,yymmddDate):
     print('取得推文內容中')
-    dom = pq(url=webDetailDataHtml,cookies={'over18' : '1'})
+    dom = pq(url=webDetailDataHtml,cookies={'over18' : '1'},headers=headers[randint(0,5)])
     pushDatas = dom('.push')
     pushDataList = []
     count = 0
@@ -166,7 +174,7 @@ def getWebDetailPushData(webDetailDataHtml,yymmddDate):
 #去除 ' 單引號，用@代替
 def getWebDetailData(webDetailDataHtml):
     print('取得文章內容中')
-    dom = pq(url=webDetailDataHtml,cookies={'over18' : '1'})
+    dom = pq(url=webDetailDataHtml,cookies={'over18' : '1'},headers=headers[randint(0,5)])
 
     #取得po文時間
     postDate = timeFormatTransfer(dom('.article-meta-value').eq(3).text())
