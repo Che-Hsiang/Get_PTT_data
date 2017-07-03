@@ -25,7 +25,7 @@ def startDownloadData(targetBoard,targetUrl,targetDate,targetFolder):
     print('本頁網址為: %s' % targetUrl)
     writeFlag(targetBoard,targetUrl,targetDate,targetFolder)
     print('準備開始爬文章標題')
-    dom = pq(url=targetUrl,cookies={'over18' : '1'},headers=headers[randint(0,5)])
+    dom = pq(url=targetUrl,cookies={'over18' : '1'},headers=headers[randint(0,4)])
     print('文章標題取得完畢')
     if targetUrl[-10:] == 'index.html':
         contents = dom('.r-list-container').children('.r-list-sep').prev_all('.r-ent')
@@ -150,7 +150,7 @@ def getPostVersion(articleCode):
 #去除 ' 單引號，用@代替
 def getWebDetailPushData(webDetailDataHtml,yymmddDate):
     print('取得推文內容中')
-    dom = pq(url=webDetailDataHtml,cookies={'over18' : '1'},headers=headers[randint(0,5)])
+    dom = pq(url=webDetailDataHtml,cookies={'over18' : '1'},headers=headers[randint(0,4)])
     pushDatas = dom('.push')
     pushDataList = []
     count = 0
@@ -174,7 +174,7 @@ def getWebDetailPushData(webDetailDataHtml,yymmddDate):
 #去除 ' 單引號，用@代替
 def getWebDetailData(webDetailDataHtml):
     print('取得文章內容中')
-    dom = pq(url=webDetailDataHtml,cookies={'over18' : '1'},headers=headers[randint(0,5)])
+    dom = pq(url=webDetailDataHtml,cookies={'over18' : '1'},headers=headers[randint(0,4)])
 
     #取得po文時間
     postDate = timeFormatTransfer(dom('.article-meta-value').eq(3).text())
