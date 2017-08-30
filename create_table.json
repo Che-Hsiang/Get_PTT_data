@@ -1,5 +1,5 @@
 {
     "article_data":"CREATE TABLE article_data(board_name character varying(20),article_code character varying(30),article_url character varying(100),article_title character varying(100),author_id character varying(30),article_content character varying(1000),article_nrec integer DEFAULT 0,post_date timestamp with time zone,post_version integer DEFAULT 0,get_date timestamp with time zone);",
     "push_data":"CREATE TABLE push_data(article_code character varying(30),push_no integer DEFAULT 0,push_id character varying(30),push_text character varying(50),push_tag character varying(2),push_date timestamp with time zone);",
-    "url_data":"CREATE TABLE url_data (article_code character varying(30),url_link character varying(100),urlOwnerId character varying(30));"
+    "url_data":"CREATE TABLE url_data (article_code character varying(30),url_link character varying(100),url_owner_id character varying(30));"
 }
