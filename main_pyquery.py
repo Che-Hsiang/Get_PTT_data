@@ -23,7 +23,6 @@ headers = [headers1,headers2,headers3,headers4,headers5]
 
 def start_download_data(target_board,target_url,target_date,target_folder,continue_flag = False):
     print('本頁網址為: %s' % target_url)
-    print('continue_flag : ',continue_flag)
     if continue_flag is True or continue_flag == 'True':
         write_flag(target_board,target_url,target_date,target_folder)
     else:
@@ -91,7 +90,7 @@ def start_download_data(target_board,target_url,target_date,target_folder,contin
         print('結束爬文')
     else:
         print('準備爬上一頁')
-        start_download_data(target_board,pre_page,target_date,target_folder)
+        start_download_data(target_board,pre_page,target_date,target_folder,continue_flag)
 
 #寫入現在的flag
 def write_flag(target_board,target_url,target_date,target_folder):
