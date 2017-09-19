@@ -8,6 +8,7 @@ import sqlite3
 import datetime
 import json
 import sys
+from time import sleep
 from pyquery import PyQuery as pq
 from random import randint
 
@@ -170,7 +171,7 @@ def get_web_detail_push_data(web_detail_data_html,yymmdd_date):
         push_data_dict['push_no'] = count
         push_data_dict['push_tag'] = push_data('.push-tag').text()
         push_data_dict['push_id'] = push_data('.push-userid').text()
-        push_data_dict['push_text'] = push_data('.push-content').text().replace("'",'@')
+        push_data_dict['push_text'] = push_data('.push-content').text().replace("'","''")
         push_data_dict['push_date'] = yymmdd_date + ' ' + push_data('.push-ipdatetime').text()[-5:]
         push_data_list.append(push_data_dict)
 
@@ -221,7 +222,7 @@ def get_web_data(target_content):
         nrec = target_content('.nrec').children().text()
         mmdd_date = target_content('.date').text()
         html = main_url + target_content('.title').children().attr('href')
-        title = target_content('.title').children().text()
+        title = target_content('.title').children().text().replace("'","''")
         author = target_content('.author').text()
 
         nrec = nrec.strip(' ')
