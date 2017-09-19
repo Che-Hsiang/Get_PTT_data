@@ -22,18 +22,23 @@ headers5 = {'User-Agent':'Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML,
 headers = [headers1,headers2,headers3,headers4,headers5]
 
 def start_download_data(target_board,target_url,target_date,target_folder,continue_flag = False):
+
     print('本頁網址為: %s' % target_url)
+
     if continue_flag is True or continue_flag == 'True':
         write_flag(target_board,target_url,target_date,target_folder)
     else:
         print('本次不寫入flag')
+
     print('準備開始爬文章標題')
     dom = pq(url=target_url,cookies={'over18' : '1'},headers=headers[randint(0,len(headers)-1)])
     print('文章標題取得完畢')
+
     if target_url[-10:] == 'index.html':
         contents = dom('.r-list-container').children('.r-list-sep').prev_all('.r-ent')
     else:
         contents = dom('.r-list-container').children('.r-ent')
+
     #上一頁
     pre_page = main_url + dom('.wide').eq(1).attr('href')
     target_date_len =  len(target_date)
@@ -94,9 +99,10 @@ def start_download_data(target_board,target_url,target_date,target_folder,contin
 
 #寫入現在的flag
 def write_flag(target_board,target_url,target_date,target_folder):
+    file_name = target_board
     try:
         print('準備寫入flag')
-        f = open('flag.txt','w')
+        f = open(file_name,'w')
         f.write(target_board)
         f.write('\n')
         f.write(target_url)
@@ -106,22 +112,22 @@ def write_flag(target_board,target_url,target_date,target_folder):
         f.write(target_folder)
         print('flag寫入完畢')
     except Exception as e:
-        print('寫入檔案發生了一些問題')
+        print('寫入flag發生了一些問題')
         print(e)
     finally:
         f.close()
 
 #讀取上次的flag
-def read_flag():
+def read_flag(flag):
     try:
         print('準備讀取flag')
-        f = open('flag.txt','r')
+        f = open(flag,'r')
         flag = f.readlines()
         print('flag讀取完畢')
         return flag
     except Exception as e:
-        print('讀取檔案發生了一些問題')
         print(e)
+        print('讀取flag發生了一些問題')
     finally:
         f.close()
 
@@ -143,7 +149,8 @@ def get_post_version(article_code):
             return '0'
         else:
             return res[1] + 1
-    except:
+    except Exception as e:
+        print(e)
         print('文章版本取得發生一些問題')
         return '0'
     finally:
@@ -248,7 +255,7 @@ def insert_article_data_to_db(ptt_data,article_code):
         cur = conn.cursor()
         print('DB連線建立中')
 
-        print('準備新增文章資料')
+        print('確認文章資料')
 #        print(ptt_data)
 
         article_data_sql =    """insert into article_data (board_name,article_code,article_url,article_title,author_id,article_content,article_nrec,post_version,post_date,get_date)
@@ -268,18 +275,22 @@ def insert_article_data_to_db(ptt_data,article_code):
 
         checkArticleRes =  cur.rowcount
 
-        if checkArticleRes > 0:
-            print('文章資料新增完畢')
-        else:
-            print('文章資料已存在，故跳過新增此文章')
-
+#        if checkArticleRes > 0:
+#            print('文章資料確認完畢')
+#        else:
+#            print('文章資料已存在，故跳過新增此文章')
+        print('準備新增文章資料')
         conn.commit()
+        print('資料新增完畢')
+        conn.close()
     except Exception as e:
         print(e)
         print('###########################糟糕 sql 指令出了些問題##############################')
         conn.rollback()
-    finally:
         conn.close()
+        print("三秒後重新執行")
+        sleep(3)
+        insert_article_data_to_db(ptt_data,article_code)
 
 #新增推文資料到DB
 def insert_push_data_to_db(ptt_data,article_code):
@@ -289,7 +300,7 @@ def insert_push_data_to_db(ptt_data,article_code):
         cur = conn.cursor()
         print('DB連線建立中')
 
-        print('準備新增推文資料')
+        print('確認推文資料')
         for push_data in ptt_data['web_detail_push_data']:
             push_data['article_code'] = article_code
             push_datasql =   """insert into push_data (article_code,push_no,push_id,push_text,push_tag,push_date)
@@ -310,20 +321,23 @@ def insert_push_data_to_db(ptt_data,article_code):
 
             check_push_res = cur.rowcount
 
-            if check_push_res > 0:
-                print('第 %s 推文資料新增成功' % push_data['push_no'])
-            else:
-                print('第 %s 推文資料已存在，故跳過此推文' % push_data['push_no'])
+#            if check_push_res > 0:
+#                print('第 %s 推文資料新增成功' % push_data['push_no'])
+#            else:
+#                print('第 %s 推文資料已存在，故跳過此推文' % push_data['push_no'])
 
-        print('推文資料新增完畢')
-
+        print('準備新增推文資料')
         conn.commit()
+        print('資料新增完畢')
+        conn.close()
     except Exception as e:
         print(e)
         print('###########################糟糕 sql 指令出了些問題##############################')
         conn.rollback()
-    finally:
         conn.close()
+        print("三秒後重新執行")
+        sleep(3)
+        insert_push_data_to_db(ptt_data,article_code)
 
 #新增url資料到DB
 def insert_url_data_to_db(ptt_data,article_code):
@@ -332,7 +346,7 @@ def insert_url_data_to_db(ptt_data,article_code):
         cur = conn.cursor()
         print('DB連線建立中')
 
-        print('準備新增url資料')
+        print('確認url資料')
         for url_data in ptt_data['urls']:
             url_dataSql =    """insert into url_data (article_code,url_link,url_owner_id)
                                select '%(article_code)s','%(url_link)s','%(url_owner_id)s'
@@ -348,20 +362,23 @@ def insert_url_data_to_db(ptt_data,article_code):
 
             check_url_res = cur.rowcount
 
-            if check_url_res > 0:
-                print('url: %s 新增成功' % url_data)
-            else:
-                print('url: %s 已存在，故跳過此url' % url_data)
+#            if check_url_res > 0:
+#                print('url: %s 準備新增' % url_data)
+#            else:
+#                print('url: %s 已存在，故跳過此url' % url_data)
 
-        print('url資料新增完畢')
-
+        print('準備新增url資料')
         conn.commit()
+        print('資料新增完畢')
+        conn.close()
     except Exception as e:
         print(e)
         print('###########################糟糕 sql 指令出了些問題##############################')
         conn.rollback()
-    finally:
         conn.close()
+        print("三秒後重新執行")
+        sleep(3)
+        insert_url_data_to_db(ptt_data,article_code)
 
 #確認db檔是否存在，若不存在則創db
 def check_db_exist():
@@ -399,6 +416,9 @@ def help():
     print('===========================================================================')
     print('python3 main_pyquery.py target_board target_date target_folder continue_flag')
     print('')
+    print('範例：')
+    print('     python3 main_pyquery.py Stock 2008 test True')
+    print('')
     print('格式:')
     print('    target_board  = MAC or Beauty')
     print('    target_date   = 2017-07-01 or 2017-07 or 2017')
@@ -410,7 +430,10 @@ def help():
     print('    target_date : 2017        = 2017       ~ 現在')
     print('')
     print('===========================================================')
-    print('python3 main_pyquery.py from_last_url')
+    print('python3 main_pyquery.py from_last_url board_flag')
+    print('')
+    print('範例：')
+    print('    python3 main_pyquery.py from_last_url Stock')
     print('')
     print('===========================================================')
     print('需安裝套件如下：')
@@ -427,11 +450,11 @@ if __name__ == "__main__":
         target_url_head = 'https://www.ptt.cc/bbs/' + sys.argv[1] + '/'
         target_url = 'https://www.ptt.cc/bbs/' + sys.argv[1] + '/index.html'
         start_download_data(sys.argv[1],target_url,sys.argv[2],sys.argv[3],sys.argv[4])
-    elif len(sys.argv) == 2 and sys.argv[1] == 'from_last_url':
+    elif len(sys.argv) == 3 and sys.argv[1] == 'from_last_url' and sys.argv[2] is not None:
         check_db_exist()
-        pre_url = read_flag()
+        pre_url = read_flag(sys.argv[2])
         target_url_head = 'https://www.ptt.cc/bbs/' + pre_url[1].strip('\n') + '/'
         target_url = 'https://www.ptt.cc/bbs/' + pre_url[1].strip('\n') + '/index.html'
-        start_download_data(pre_url[0].strip('\n'),pre_url[1].strip('\n'),pre_url[2].strip('\n'),pre_url[3].strip('\n'))
+        start_download_data(pre_url[0].strip('\n'),pre_url[1].strip('\n'),pre_url[2].strip('\n'),pre_url[3].strip('\n'),True)
     else:
         help()
